@@ -115,7 +115,7 @@ async function buildPage(srcPath, info) {
   });
 
   // scripts, trackers, calendly, recaptcha
-  $('script').remove();
+  $('script').not('.TextAttributes-props').remove(); // highlight configs are read further down
   $('noscript').remove();
   $('iframe[title="reCAPTCHA"], iframe[style*="display: none"]').remove();
   $('link[rel="preconnect"], link[rel="dns-prefetch"], link[rel="preload"], link[rel="modulepreload"], link[as="script"]').remove();
@@ -183,6 +183,47 @@ async function buildPage(srcPath, info) {
     const s = $(el).attr('style').replace(/--image-component-container-(width|height):[^;]*;?/g, '');
     $(el).attr('style', s);
   });
+  // circle-masked images and square images (app icons, game badges) must stay square at any width
+  $('.fe-block .fluid-image-component-root').each((_, el) => {
+    const block = $(el).closest('.sqs-block');
+    const ratio = (block.find('style').text().match(/native-aspect-ratio: (\d+)\/(\d+)/) || []).slice(1).map(Number);
+    const isSquare = ratio.length === 2 && Math.abs(ratio[0] / ratio[1] - 1) < 0.02;
+    if ($(el).find('svg[data-image-mask-id]').length || isSquare) $(el).addClass('static-square');
+  });
+
+  // Squarespace draws text highlights as SVG overlays positioned in px for one viewport;
+  // turn them into CSS on the highlighted span so they follow the text when it wraps
+  $('.sqs-block-content').each((_, content) => {
+    const shapes = {};
+    $(content).find('.TextShape-node').each((_, n) => {
+      const style = $(n).attr('style') || '';
+      shapes[$(n).attr('data-text-attribute-id')] = {
+        shape: $(n).attr('data-shape'),
+        stroke: (style.match(/--stroke:\s*([^;]+)/) || [])[1],
+        width: (style.match(/--stroke-width:\s*([^;]+)/) || [])[1],
+      };
+    }).remove();
+    $(content).find('script.TextAttributes-props').each((_, s) => {
+      let list = [];
+      try { list = JSON.parse($(s).html()); } catch {}
+      for (const a of list) {
+        if (shapes[a.id]) continue;
+        const h = a.color?.customColor?.hslaValue;
+        shapes[a.id] = {
+          shape: a.shape,
+          stroke: h ? `hsla(${h.hue}, ${h.saturation * 100}%, ${h.lightness * 100}%, ${h.alpha})` : 'currentColor',
+          width: a.thickness ? a.thickness.value + a.thickness.unit : undefined,
+        };
+      }
+    });
+    $(content).find('.sqsrte-text-highlight[data-text-attribute-id]').each((_, span) => {
+      const sh = shapes[$(span).attr('data-text-attribute-id')];
+      if (!sh) return;
+      $(span).addClass(`static-hl static-hl--${sh.shape}`);
+      $(span).attr('style', `--hl: ${sh.stroke};` + (sh.width ? ` --hl-w: ${sh.width};` : ''));
+    });
+  });
+  $('script.TextAttributes-props').remove();
 
   // images
   const jobs = [];
