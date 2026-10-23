@@ -225,6 +225,18 @@ async function buildPage(srcPath, info) {
   });
   $('script.TextAttributes-props').remove();
 
+  // a highlight that starts mid-word ("t|ourner") takes in the start of that word
+  const lastText = (n) => { for (let c = n; c; c = c.lastChild) if (c.type === 'text') return c; return null; };
+  const firstText = (n) => { for (let c = n; c; c = c.firstChild) if (c.type === 'text') return c; return null; };
+  $('.static-hl').each((_, span) => {
+    const prev = lastText(span.prev);
+    const first = firstText(span);
+    const head = prev && first && /^\p{L}/u.test(first.data) && prev.data.match(/\p{L}+$/u);
+    if (!head) return;
+    prev.data = prev.data.slice(0, -head[0].length);
+    first.data = head[0] + first.data;
+  });
+
   // images
   const jobs = [];
   $('img').each((_, img) => {
