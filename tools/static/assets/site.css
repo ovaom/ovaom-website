@@ -1,0 +1,20 @@
+/* Squarespace reveals these with JS on scroll; show them directly. */
+.preFade, .preScale, .preSlide, .preClip, .preFlex {
+  opacity: 1 !important;
+  clip-path: none !important;
+}
+.preScale, .preSlide {
+  transform: none !important;
+}
+
+/* Carousels laid out by assets/site.js instead of Squarespace's script */
+.user-items-list-carousel__slides.is-static {
+  display: flex !important;
+  transition: transform 0.5s ease;
+}
+.user-items-list-carousel__slides.is-static > li {
+  transform: none !important;
+  position: relative !important;
+  flex: 0 0 auto;
+  left: auto !important;
+}
